@@ -43,11 +43,37 @@ identify_gender %>%
   full_join(data.frame(panel=panel, name=first_name, stringsAsFactors=FALSE)) -> panel_demographics
 ```
 
-The gender package will only report results on names that are found in their database, and this would exclude some (but not all) "foreign" names. Any of these cases, plus any cases where the gender package rates the probability of male/female somewhere in the ambiguous middle (between 20% and 80%) will be codes as unknown/ambiguous.
+The gender package will only report results on names that are found in their database, and this would exclude some (but not all) "foreign" names. Any of these cases, plus any cases where the gender package rates the probability of male/female somewhere in the ambiguous middle (between 20% and 80%) will be coded as unknown/ambiguous.
 
-```{r count}
+Here are the names with unknown gender. You could probably resolve some of these easily.
+
+```{r count-unknown}
 unknown_gender <- is.na(panel_demographics$gender)
+panel_demographics %>%
+  filter(unknown_gender) %>%
+  pull(name) %>%
+  unique %>%
+  sort %>%
+  paste(collapse=", ") %>%
+  print
+```
+
+Here are the ambiguous names.
+
+```{r count-ambiguous}
 ambiguous_gender <- panel_demographics$proportion_male > 0.20 & panel_demographics$proportion_male < 0.80
+panel_demographics %>%
+  filter(ambiguous_gender) %>%
+  pull(name) %>%
+  unique %>%
+  sort %>%
+  paste(collapse=", ") %>%
+  print
+```
+
+Code both the unknown and ambiguous names into the same category.
+
+```{r code-unknown-and-ambiguous}
 panel_demographics$gender[unknown_gender] <- "unknown/ambiguous"
 panel_demographics$gender[ambiguous_gender] <- "unknown/ambiguous"
 table(panel_demographics$gender)

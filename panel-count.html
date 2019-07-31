@@ -539,10 +539,29 @@ identify_gender %&gt;%
   distinct(name, .keep_all=TRUE) %&gt;%
   full_join(data.frame(panel=panel, name=first_name, stringsAsFactors=FALSE)) -&gt; panel_demographics</code></pre>
 <pre><code>## Joining, by = &quot;name&quot;</code></pre>
-<p>The gender package will only report results on names that are found in their database, and this would exclude some (but not all) “foreign” names. Any of these cases, plus any cases where the gender package rates the probability of male/female somewhere in the ambiguous middle (between 20% and 80%) will be codes as unknown/ambiguous.</p>
+<p>The gender package will only report results on names that are found in their database, and this would exclude some (but not all) “foreign” names. Any of these cases, plus any cases where the gender package rates the probability of male/female somewhere in the ambiguous middle (between 20% and 80%) will be coded as unknown/ambiguous.</p>
+<p>Here are the names with unknown gender. You could probably resolve some of these easily.</p>
 <pre class="r"><code>unknown_gender &lt;- is.na(panel_demographics$gender)
-ambiguous_gender &lt;- panel_demographics$proportion_male &gt; 0.20 &amp; panel_demographics$proportion_male &lt; 0.80
-panel_demographics$gender[unknown_gender] &lt;- &quot;unknown/ambiguous&quot;
+panel_demographics %&gt;%
+  filter(unknown_gender) %&gt;%
+  pull(name) %&gt;%
+  unique %&gt;%
+  sort %&gt;%
+  paste(collapse=&quot;, &quot;) %&gt;%
+  print</code></pre>
+<pre><code>## [1] &quot;Albrecht, Gina-Maria, Hansi, Haoda, Hongyu, Ji-Hyun, Jungwha, Mine, Pandurang, Xiao-Li, Xihong&quot;</code></pre>
+<p>Here are the ambiguous names.</p>
+<pre class="r"><code>ambiguous_gender &lt;- panel_demographics$proportion_male &gt; 0.20 &amp; panel_demographics$proportion_male &lt; 0.80
+panel_demographics %&gt;%
+  filter(ambiguous_gender) %&gt;%
+  pull(name) %&gt;%
+  unique %&gt;%
+  sort %&gt;%
+  paste(collapse=&quot;, &quot;) %&gt;%
+  print</code></pre>
+<pre><code>## [1] &quot;Leslie, Tian, Ying&quot;</code></pre>
+<p>Code both the unknown and ambiguous names into the same category.</p>
+<pre class="r"><code>panel_demographics$gender[unknown_gender] &lt;- &quot;unknown/ambiguous&quot;
 panel_demographics$gender[ambiguous_gender] &lt;- &quot;unknown/ambiguous&quot;
 table(panel_demographics$gender)</code></pre>
 <pre><code>## 
