@@ -1,0 +1,89 @@
+---
+title: "JSM Panel Count"
+author: "Steve Simon"
+date: "7/29/2019"
+output: html_document
+---
+
+The text file, panels.txt, was obtained from the online program of JSM2019. I went to the advanced search tab, clicked on the panels option to get only panel discussions, and cut and pasted the resulting output into a text file.
+
+```{r read}
+suppressWarnings(suppressMessages(library(gender)))
+suppressWarnings(suppressMessages(library(magrittr)))
+suppressWarnings(suppressMessages(library(tidyverse)))
+raw_text <- readLines("panels.txt")
+```
+
+The text file has a consistent format that makes it easy to identify the first panelist is on a line starting with the text "Panelists:\t" and the last panelist appears just before the line with the text "Floor Discussion".
+
+```{r extract}
+i <- grep("^Panelists:\t", raw_text)
+j <- grep("Floor Discussion", raw_text)
+for (k in 1:length(i)) {
+  cat(paste(raw_text[i[k]:j[k]], collapse="\n"))
+  cat("\n\n")
+}
+full_name <- NULL
+panel <- NULL
+for (k in 1:length(i)) {
+  full_name <- c(full_name, raw_text[i[k]:(j[k]-1)])
+  panel <- c(panel, rep(k, j[k]-i[k]))
+}
+full_name %>%
+  sub("^Panelists:\t", "", .) %>%
+  sub(" .*", "", .) -> first_name
+```
+
+The gender package takes a first name and compares it to a database of names from Social Security that calculates the proportion of males and of females in that database who have a specific first name. Names like "Mary" and "John" will belong almost exclusively to one gender, but names like "Pat" will be more evenly split.
+
+```{r gender}
+identify_gender <- gender(first_name)
+identify_gender %>%
+  distinct(name, .keep_all=TRUE) %>%
+  full_join(data.frame(panel=panel, name=first_name, stringsAsFactors=FALSE)) -> panel_demographics
+```
+
+The gender package will only report results on names that are found in their database, and this would exclude some (but not all) "foreign" names. Any of these cases, plus any cases where the gender package rates the probability of male/female somewhere in the ambiguous middle (between 20% and 80%) will be codes as unknown/ambiguous.
+
+```{r count}
+unknown_gender <- is.na(panel_demographics$gender)
+ambiguous_gender <- panel_demographics$proportion_male > 0.20 & panel_demographics$proportion_male < 0.80
+panel_demographics$gender[unknown_gender] <- "unknown/ambiguous"
+panel_demographics$gender[ambiguous_gender] <- "unknown/ambiguous"
+table(panel_demographics$gender)
+```
+
+It is very easy to get a count of female and male names by panel. The proportion of females excludes any names that were not cdoed as unknown/ambiguous.
+
+```{r summarize}
+panel_demographics %<>% arrange(panel, gender)
+n_panels <- max(panel_demographics$panel)
+name_list <- rep("", n_panels)
+for (i in 1:n_panels) {
+  name_list[i] <- paste(panel_demographics$name[panel_demographics$panel==i], collapse=", ")
+}
+panel_demographics %>%
+  mutate(f=as.numeric(gender=="female")) %>%
+  mutate(m=as.numeric(gender=="male")) %>%
+  mutate(u=as.numeric(gender=="unknown/ambiguous")) %>%
+  group_by(panel) %>%
+  summarize(
+    f=sum(f),
+    m=sum(m),
+    u=sum(u)) %>%
+  mutate(p_f=round(f/(f+m), 2)) %>%
+  bind_cols(tibble(name_list)) %>%
+  arrange(p_f) %>%
+  data.frame -> panel_summary
+panel_summary %>%
+  summarize_at(c("f", "m", "u"), sum) %>%
+  mutate(p_f=round(f/(f+m), 2)) -> panel_summary_total_row
+panel_summary         
+panel_summary_total_row
+```
+
+Save everything for possible re-use.
+
+```{r save}
+save.image(file="panel-count.RData")
+```
